@@ -5,22 +5,28 @@
 function Dimension(name, rowCount) {
   var that = this;
   var values = new Float64Array(rowCount);
-  var minValue = Number.POSITIVE_INFINITY;
-  var maxValue = Number.NEGATIVE_INFINITY;
   var scale = d3.scale.linear();
+  var oldScale = scale;
 
   this.setValue = function(ix, value) {
     var v = +value;
     values[ix] = v;
-    if(Number.isFinite(v)) {
-      minValue = Math.min(minValue, v);
-      maxValue = Math.max(maxValue, v);
-    }
   };
   this.getValue = function(ix) {
     return values[ix];
   };
-  this.getExtent = function() {
+  this.getExtent = function(ixs) {
+    var minValue = Number.POSITIVE_INFINITY;
+    var maxValue = Number.NEGATIVE_INFINITY;
+    ixs.forEach(function(ix) {
+      var v = values[ix];
+      if(v < minValue) {
+        minValue = v;
+      }
+      if(v > maxValue) {
+        maxValue = v;
+      }
+    });
     return [ minValue, maxValue ];
   };
   this.getName = function() {
@@ -28,7 +34,12 @@ function Dimension(name, rowCount) {
   };
   this.scale = function(_) {
     if(!arguments.length) return scale;
+    that.oldScale(scale.copy());
     scale = _;
+  };
+  this.oldScale = function(_) {
+    if(!arguments.length) return oldScale;
+    oldScale = _;
   };
 } // Category
 Dimension.loadAll = function(data, columns, features) {

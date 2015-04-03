@@ -63,6 +63,7 @@ function start() {
   var columns = "Water,Energ_Kcal,Protein,Lipid_Tot,Ash,Carbohydrt,Fiber_TD,Sugar_Tot,Calcium,Iron,Magnesium,Phosphorus,Potassium,Sodium,Zinc,Copper,Manganese,Selenium,Vit_C,Thiamin,Riboflavin,Niacin,Panto_Acid,Vit_B6,Folate_Tot.,Folic_Acid,Food_Folate,Folate_DFE,Choline_Tot,Vit_B12,Vit_A_IU,Vit_A_RAE,Retinol,Alpha_Carot,Beta_Carot,Beta_Crypt,Lycopene,Lut.Zea,Vit_E,Vit_D,Vit_D.1,Vit_K,FA_Sat,FA_Mono,FA_Poly,Cholestrl".split(",");
   var target = "Vit_D";
 
+  var allIxs = [];
   var scatterplot = null;
   var featurelistA = null;
   var featurelistB = null;
@@ -79,15 +80,57 @@ function start() {
     "width": (width + size + 10) + "px"
   });
 
-  head.style({
+  var buttons = head.style({
     "margin-bottom": "5px"
-  }).append("button").text("swap axes").on("click", function() {
+  }).append("div").classed({
+    "btn-group": true
+  });
+  buttons.append("button").classed({
+    "btn": true,
+    "btn-default": true
+  }).text("swap axes").on("click", function() {
     var fA = scatterplot.getFeature(true);
     var fB = scatterplot.getFeature(false);
     featurelistA.update(fB);
     featurelistB.update(fA);
     scatterplot.setFeature(fB, true);
     scatterplot.setFeature(fA, false);
+    scatterplot.update();
+  });
+  buttons.append("button").classed({
+    "btn": true,
+    "btn-default": true
+  }).text("remove selection").on("click", function() {
+    var ixs = scatterplot.ixs();
+    // ixs.sort(d3.ascending); // we can assume that it is already sorted
+    var rem = scatterplot.getLastSelectionIxs();
+    // rem.sort(d3.ascending); // we can assume that it is already sorted
+    var newIxs = [];
+    var p = 0;
+    var q = 0;
+    while(p < ixs.length && q < rem.length) {
+      var a = ixs[p];
+      var b = rem[q];
+      if(a < b) {
+        newIxs.push(a);
+        p += 1;
+      } else if(a > b) {
+        q += 1;
+      } else { // a === b
+        p += 1;
+      }
+    }
+    for(;p < ixs.length;p += 1) {
+      newIxs.push(ixs[p]);
+    }
+    scatterplot.ixs(newIxs);
+    scatterplot.update();
+  });
+  buttons.append("button").classed({
+    "btn": true,
+    "btn-default": true
+  }).text("show all").on("click", function() {
+    scatterplot.ixs(allIxs);
     scatterplot.update();
   });
 
@@ -97,7 +140,7 @@ function start() {
       return;
     }
     var featureMap = {};
-    var ixs = Dimension.loadAll(data, columns, featureMap);
+    allIxs = Dimension.loadAll(data, columns, featureMap);
     var targetFeature = featureMap[target];
     var features = Object.keys(featureMap).map(function(n) {
       return featureMap[n];
@@ -112,7 +155,7 @@ function start() {
     listB.selectAll("*").remove();
 
     scatterplot = new Scatterplot(main, size, radius, 750, "easeInOutCubic");
-    scatterplot.setIxs(ixs);
+    scatterplot.ixs(allIxs);
     scatterplot.setFeature(targetFeature, false);
     scatterplot.setFeature(features[0], true);
     scatterplot.update();

@@ -10,7 +10,7 @@ function Featurelist(sel, width, height, selectFeature) {
     "height": height + "px",
     "width": width + "px",
     "display": "inline-block",
-    "border": "1px solid black"
+    "border": "1px solid darkgray"
   });
   var list = sel.append("ul").classed("featureUl", true);
 
