@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>simple demo</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" type="text/css" href="lib/bootstrap/css/bootstrap.min.css">
+  <!--<script src="lib/jquery/jquery.min.js" charset="utf-8"></script>
+  <script src="lib/bootstrap/js/bootstrap.min.js" charset="utf-8"></script>-->
+  <script src="lib/d3/d3.min.js" charset="utf-8"></script>
+  <script src="js/dimension.js" charset="utf-8"></script>
+  <script src="js/scatterplot.js" charset="utf-8"></script>
+  <script src="js/featurelist.js" charset="utf-8"></script>
+  <style>
+  .featureUl {
+    padding: 0;
+    margin: 0;
+  }
+
+  .featureLi {
+    list-style-type: none;
+    cursor: pointer;
+    padding: 5px;
+  }
+
+  .featureLi:hover {
+    background: #e7e7e7;
+  }
+
+  .featureLiSel, .featureLiSel:hover {
+    background: rgb(55,126,184);
+    font-weight: bold;
+    color: white;
+  }
+
+  .axis path {
+    display: none;
+  }
+
+  .axis line {
+    shape-rendering: crispEdges;
+    stroke: lightgray;
+  }
+
+  .axis .minor line {
+    stroke: lightgray;
+    stroke-dasharray: 2,2;
+  }
+  </style>
+</head>
+<body onload="start()">
+  <div id="head"></div>
+  <div id="listA"></div>
+  <div id="main"></div>
+  <div id="listB"></div>
+  <div id="histogram"></div>
+
+<script>
+function start() {
+  var size = 500;
+  var width = 200;
+  var radius = 2;
+  var file = "data/usda/usda-grp-nomiss.csv";
+  var columns = "Water,Energ_Kcal,Protein,Lipid_Tot,Ash,Carbohydrt,Fiber_TD,Sugar_Tot,Calcium,Iron,Magnesium,Phosphorus,Potassium,Sodium,Zinc,Copper,Manganese,Selenium,Vit_C,Thiamin,Riboflavin,Niacin,Panto_Acid,Vit_B6,Folate_Tot.,Folic_Acid,Food_Folate,Folate_DFE,Choline_Tot,Vit_B12,Vit_A_IU,Vit_A_RAE,Retinol,Alpha_Carot,Beta_Carot,Beta_Crypt,Lycopene,Lut.Zea,Vit_E,Vit_D,Vit_D.1,Vit_K,FA_Sat,FA_Mono,FA_Poly,Cholestrl".split(",");
+  var target = "Vit_D";
+
+  var scatterplot = null;
+  var featurelistA = null;
+  var featurelistB = null;
+
+  d3.select("body").style({
+    "padding": "5px"
+  });
+
+  var main = d3.select("#main");
+  var listA = d3.select("#listA");
+  var listB = d3.select("#listB");
+  var head = d3.select("#head").style({
+    "display": "block",
+    "width": (width + size + 10) + "px"
+  });
+
+  head.style({
+    "margin-bottom": "5px"
+  }).append("button").text("swap axes").on("click", function() {
+    var fA = scatterplot.getFeature(true);
+    var fB = scatterplot.getFeature(false);
+    featurelistA.update(fB);
+    featurelistB.update(fA);
+    scatterplot.setFeature(fB, true);
+    scatterplot.setFeature(fA, false);
+    scatterplot.update();
+  });
+
+  d3.csv(file, function(error, data) {
+    if(error) {
+      console.warn(error);
+      return;
+    }
+    var featureMap = {};
+    var ixs = Dimension.loadAll(data, columns, featureMap);
+    var targetFeature = featureMap[target];
+    var features = Object.keys(featureMap).map(function(n) {
+      return featureMap[n];
+    });
+    if(!features.length) {
+      console.warn("no features loaded!");
+      return;
+    }
+
+    main.selectAll("*").remove();
+    listA.selectAll("*").remove();
+    listB.selectAll("*").remove();
+
+    scatterplot = new Scatterplot(main, size, radius, 750, "easeInOutCubic");
+    scatterplot.setIxs(ixs);
+    scatterplot.setFeature(targetFeature, false);
+    scatterplot.setFeature(features[0], true);
+    scatterplot.update();
+
+    featurelistA = new Featurelist(listA, width, size, function(f) { // selectFeature
+      scatterplot.setFeature(f, true);
+      scatterplot.update();
+      featurelistA.update(f);
+    });
+    featurelistA.setFeatures(features);
+    featurelistA.update(scatterplot.getFeature(true));
+
+    featurelistB = new Featurelist(listB, width, size, function(f) { // selectFeature
+      scatterplot.setFeature(f, false);
+      scatterplot.update();
+      featurelistB.update(f);
+    });
+    featurelistB.setFeatures(features);
+    featurelistB.update(scatterplot.getFeature(false));
+  });
+}
+</script>
+
+</body>
+</html>
