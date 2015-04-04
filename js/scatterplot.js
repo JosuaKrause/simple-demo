@@ -2,11 +2,8 @@
  * Created by krause on 2015-04-03 12:02am.
  */
 
-function Scatterplot(sel, size, radius, duration, ease) {
+function Scatterplot(sel, size, radius, duration, ease, colors) {
   var that = this;
-  var fill = "cornflowerblue";
-  var tempFill = "orange";
-  var selectFill = "crimson";
   var paddingLeft = 45;
   var paddingRight = 25;
   var paddingTop = 10 + (paddingLeft + paddingRight) * 0.5;
@@ -72,53 +69,15 @@ function Scatterplot(sel, size, radius, duration, ease) {
       var circle = d3.select(this);
       var px = getX(ix);
       var py = getY(ix);
-
-      function crossings(posA, posB) {
-        var x0 = posA[0];
-        var y0 = posA[1];
-        var x1 = posB[0];
-        var y1 = posB[1];
-        if(py <  y0 && py <  y1) return 0;
-        if(py >= y0 && py >= y1) return 0;
-        // (y0 != y1) || console.warn("y0 == y1", posA, posB);
-        if(px >= x0 && px >= x1) return 0;
-        if(px <  x0 && px <  x1) return (y0 < y1) ? 1 : -1;
-        var xintercept = x0 + (py - y0) * (x1 - x0) / (y1 - y0);
-        if (px >= xintercept) return 0;
-        return (y0 < y1) ? 1 : -1;
-      }
-
-      function pointInPolygon() {
-        var posA = dragList[dragList.length - 1];
-        var numCrossings = 0;
-        dragList.forEach(function(posB) {
-          numCrossings += crossings(posA, posB);
-          posA = posB;
-        });
-        return numCrossings & 1 != 0;
-      }
-
-      var inPoly = pointInPolygon();
+      var inPoly = pointInPolygon(px, py, dragList);
       if(inPoly) {
         selIxs.push(ix);
       }
       circle.attr({
-        "fill": !inPoly ? fill : !finalSel ? tempFill : selectFill
+        "fill": !inPoly ? colors[0] : !finalSel ? colors[1] : colors[2]
       });
     });
     return selIxs;
-  }
-
-  function toPoly(arr) {
-    return arr.reduce(function(str, cur) {
-      if(str.length) {
-        str += " L ";
-      } else {
-        str += "M ";
-      }
-      str += cur;
-      return str;
-    }, "");
   }
 
   var drag = d3.behavior.drag();
@@ -181,7 +140,12 @@ function Scatterplot(sel, size, radius, duration, ease) {
     return isA ? featureA : featureB;
   };
   this.update = function() {
-    if(!featureA || !featureB) return;
+    if(!featureA || !featureB) {
+      svg.selectAll("circle").transition().duration(duration).ease(ease).attr({
+        "r": 0
+      }).remove();
+      return;
+    }
     var oldSx = featureA.oldScale();
     var oldSy = featureB.oldScale();
     var sx = featureA.scale().domain(featureA.getExtent(ixs)).range([ paddingLeft, size - paddingRight ]).nice();
@@ -225,7 +189,7 @@ function Scatterplot(sel, size, radius, duration, ease) {
       "cy": function(ix) {
         return oldSy(featureB.getValue(ix));
       },
-      "fill": fill,
+      "fill": colors[0],
       "stroke": "black",
       "stroke-width": 0.2
     });

@@ -27,6 +27,12 @@ function Dimension(name, rowCount) {
         maxValue = v;
       }
     });
+    if(minValue == maxValue) { // fix for bug when we have only one value
+      maxValue += 0.1;
+    } else if(minValue > maxValue) { // fix for bug when we don't have any value
+      minValue = 0
+      maxValue = 1
+    }
     return [ minValue, maxValue ];
   };
   this.getName = function() {

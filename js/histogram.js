@@ -2,7 +2,7 @@
  * Created by krause on 2015-04-03 09:16pm.
  */
 
-function Histogram(sel, width, height, duration, ease) {
+function Histogram(sel, width, height, duration, ease, colors) {
   var that = this;
 
   var svg = sel.append("svg").style({
@@ -26,7 +26,13 @@ function Histogram(sel, width, height, duration, ease) {
   };
 
   this.update = function() {
-    if(!feature) return;
+    if(!feature || !ixs.length) {
+      svg.selectAll("rect").transition().duration(duration).ease(ease).attr({
+        "y": height,
+        "height": 0
+      }).remove();
+      return;
+    }
     var k = Math.ceil(Math.log2(ixs.length) + 1); // Sturge's rule
     var extent = feature.getExtent(ixs);
     var binW = (extent[1] - extent[0]) / k;
@@ -75,7 +81,7 @@ function Histogram(sel, width, height, duration, ease) {
       "y": height,
       "width": getWidth,
       "height": 0,
-      "fill": "cornflowerblue",
+      "fill": colors[0],
       "stroke": "black",
       "stroke-width": 0.2
     });
