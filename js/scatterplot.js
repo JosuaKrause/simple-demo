@@ -11,6 +11,10 @@ function Scatterplot(sel, size, radius, duration, ease) {
   var paddingRight = 25;
   var paddingTop = 10 + (paddingLeft + paddingRight) * 0.5;
   var paddingBottom = 20 + (paddingLeft + paddingRight) * 0.5;
+  this.padding = function() {
+    return [ paddingTop, paddingRight, paddingBottom, paddingLeft ];
+  };
+
   var ixs = [];
   var lastSelIxs = [];
   var featureA = null;
@@ -181,7 +185,7 @@ function Scatterplot(sel, size, radius, duration, ease) {
     var oldSx = featureA.oldScale();
     var oldSy = featureB.oldScale();
     var sx = featureA.scale().domain(featureA.getExtent(ixs)).range([ paddingLeft, size - paddingRight ]).nice();
-    var sy = featureB.scale().domain(featureB.getExtent(ixs)).range([ paddingTop, size - paddingBottom ]).nice();
+    var sy = featureB.scale().domain(featureB.getExtent(ixs)).range([ size - paddingBottom, paddingTop ]).nice();
     featureA.oldScale(sx.copy());
     featureB.oldScale(sy.copy());
 

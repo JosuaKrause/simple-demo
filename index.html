@@ -10,6 +10,7 @@
   <script src="js/dimension.js" charset="utf-8"></script>
   <script src="js/scatterplot.js" charset="utf-8"></script>
   <script src="js/featurelist.js" charset="utf-8"></script>
+  <script src="js/histogram.js" charset="utf-8"></script>
   <style>
   .featureUl {
     padding: 0;
@@ -58,6 +59,7 @@
 function start() {
   var size = 500;
   var width = 200;
+  var height = 100;
   var radius = 2;
   var file = "data/usda/usda-grp-nomiss.csv";
   var columns = "Water,Energ_Kcal,Protein,Lipid_Tot,Ash,Carbohydrt,Fiber_TD,Sugar_Tot,Calcium,Iron,Magnesium,Phosphorus,Potassium,Sodium,Zinc,Copper,Manganese,Selenium,Vit_C,Thiamin,Riboflavin,Niacin,Panto_Acid,Vit_B6,Folate_Tot.,Folic_Acid,Food_Folate,Folate_DFE,Choline_Tot,Vit_B12,Vit_A_IU,Vit_A_RAE,Retinol,Alpha_Carot,Beta_Carot,Beta_Crypt,Lycopene,Lut.Zea,Vit_E,Vit_D,Vit_D.1,Vit_K,FA_Sat,FA_Mono,FA_Poly,Cholestrl".split(",");
@@ -67,6 +69,21 @@ function start() {
   var scatterplot = null;
   var featurelistA = null;
   var featurelistB = null;
+  var histogram = null;
+
+  function setFeatureA(f) {
+    featurelistA.update(f);
+    scatterplot.setFeature(f, true); // don't update here -- callers must update
+    histogram.feature(f);
+    histogram.update();
+  }
+
+  function setIxs(ixs) {
+    scatterplot.ixs(ixs);
+    scatterplot.update();
+    histogram.ixs(ixs);
+    histogram.update();
+  }
 
   d3.select("body").style({
     "padding": "5px"
@@ -75,6 +92,7 @@ function start() {
   var main = d3.select("#main");
   var listA = d3.select("#listA");
   var listB = d3.select("#listB");
+  var hl = d3.select("#histogram");
   var head = d3.select("#head").style({
     "display": "block",
     "width": (width + size + 10) + "px"
@@ -91,9 +109,8 @@ function start() {
   }).text("swap axes").on("click", function() {
     var fA = scatterplot.getFeature(true);
     var fB = scatterplot.getFeature(false);
-    featurelistA.update(fB);
+    setFeatureA(fB);
     featurelistB.update(fA);
-    scatterplot.setFeature(fB, true);
     scatterplot.setFeature(fA, false);
     scatterplot.update();
   });
@@ -123,15 +140,13 @@ function start() {
     for(;p < ixs.length;p += 1) {
       newIxs.push(ixs[p]);
     }
-    scatterplot.ixs(newIxs);
-    scatterplot.update();
+    setIxs(newIxs);
   });
   buttons.append("button").classed({
     "btn": true,
     "btn-default": true
   }).text("show all").on("click", function() {
-    scatterplot.ixs(allIxs);
-    scatterplot.update();
+    setIxs(allIxs);
   });
 
   d3.csv(file, function(error, data) {
@@ -153,17 +168,18 @@ function start() {
     main.selectAll("*").remove();
     listA.selectAll("*").remove();
     listB.selectAll("*").remove();
+    hl.selectAll("*").remove();
 
+    var initFA = features[0];
     scatterplot = new Scatterplot(main, size, radius, 750, "easeInOutCubic");
     scatterplot.ixs(allIxs);
     scatterplot.setFeature(targetFeature, false);
-    scatterplot.setFeature(features[0], true);
+    scatterplot.setFeature(initFA, true);
     scatterplot.update();
 
     featurelistA = new Featurelist(listA, width, size, function(f) { // selectFeature
-      scatterplot.setFeature(f, true);
+      setFeatureA(f);
       scatterplot.update();
-      featurelistA.update(f);
     });
     featurelistA.setFeatures(features);
     featurelistA.update(scatterplot.getFeature(true));
@@ -175,6 +191,16 @@ function start() {
     });
     featurelistB.setFeatures(features);
     featurelistB.update(scatterplot.getFeature(false));
+
+    var pads = scatterplot.padding();
+    hl.append("span").style({
+      "width": (width + 5 + pads[3] /* left padding */) + "px",
+      "display": "inline-block"
+    });
+    histogram = new Histogram(hl, size - pads[3] /* left padding */ - pads[1] /* right padding */, height, 750, "easeInOutCubic");
+    histogram.feature(initFA);
+    histogram.ixs(allIxs);
+    histogram.update();
   });
 }
 </script>
