@@ -35,5 +35,4 @@ function Featurelist(sel, width, height, selectFeature) {
       return d3.ascending(a.getName(), b.getName());
     });
   };
-
 } // Featurelist

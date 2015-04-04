@@ -2,7 +2,7 @@
  * Created by krause on 2015-04-03 12:02am.
  */
 
-function Scatterplot(sel, size, radius, duration, ease, colors) {
+function Scatterplot(sel, size, radius, duration, ease, colors, selectPoints) {
   var that = this;
   var paddingLeft = 45;
   var paddingRight = 25;
@@ -51,7 +51,7 @@ function Scatterplot(sel, size, radius, duration, ease, colors) {
   }
 
   var dragList = [];
-  function computeSelection(finalSel) {
+  function computeSelection() {
     var selIxs = [];
     var sx = featureA.scale();
     var sy = featureB.scale();
@@ -66,16 +66,12 @@ function Scatterplot(sel, size, radius, duration, ease, colors) {
 
     var circles = svg.selectAll("circle");
     circles.each(function(ix) {
-      var circle = d3.select(this);
       var px = getX(ix);
       var py = getY(ix);
       var inPoly = pointInPolygon(px, py, dragList);
       if(inPoly) {
         selIxs.push(ix);
       }
-      circle.attr({
-        "fill": !inPoly ? colors[0] : !finalSel ? colors[1] : colors[2]
-      });
     });
     return selIxs;
   }
@@ -97,7 +93,7 @@ function Scatterplot(sel, size, radius, duration, ease, colors) {
       "opacity": 0.5,
       "d": toPoly(dragList)
     });
-    computeSelection(false);
+    selectPoints(computeSelection(), false);
   });
   drag.on("dragend", function() {
     if(!featureA || !featureB) return;
@@ -106,7 +102,7 @@ function Scatterplot(sel, size, radius, duration, ease, colors) {
       "d": ""
     });
     dragList.push(mousePos());
-    lastSelIxs = computeSelection(true);
+    selectPoints(computeSelection(), true);
   });
   svg.call(drag);
 
@@ -126,8 +122,17 @@ function Scatterplot(sel, size, radius, duration, ease, colors) {
     if(!arguments.length) return ixs;
     ixs = _;
   };
-  this.getLastSelectionIxs = function() {
-    return lastSelIxs;
+  this.selectIxs = function(selIxs, done) {
+    // abuse selectAll to get selection
+    var circles = svg.selectAll("circle").data(selIxs, function(ix) {
+      return ix;
+    });
+    circles.exit().attr({
+      "fill": colors[0]
+    });
+    circles.attr({
+      "fill": colors[!done ? 1 : 2]
+    });
   }
   this.setFeature = function(f, isA) {
     if(isA) {
@@ -200,5 +205,4 @@ function Scatterplot(sel, size, radius, duration, ease, colors) {
     });
     circles.sort(d3.ascending);
   }
-
 } // Scatterplot

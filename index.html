@@ -68,6 +68,7 @@ function start() {
   var target = "Vit_D";
 
   var allIxs = [];
+  var selIxs = [];
   var scatterplot = null;
   var featurelistA = null;
   var featurelistB = null;
@@ -77,14 +78,14 @@ function start() {
     featurelistA.update(f);
     scatterplot.setFeature(f, true); // don't update here -- callers must update
     histogram.feature(f);
-    histogram.update();
+    histogram.update(true);
   }
 
   function setIxs(ixs) {
     scatterplot.ixs(ixs);
     scatterplot.update();
     histogram.ixs(ixs);
-    histogram.update();
+    histogram.update(true);
   }
 
   d3.select("body").style({
@@ -120,7 +121,9 @@ function start() {
     "btn": true,
     "btn-default": true
   }).text("remove selection").on("click", function() {
-    var newIxs = removeIxs(scatterplot.ixs(), scatterplot.getLastSelectionIxs());
+    var newIxs = removeIxs(scatterplot.ixs(), selIxs);
+    histogram.selIxs([]);
+    selIxs = [];
     setIxs(newIxs);
   });
   buttons.append("button").classed({
@@ -152,7 +155,15 @@ function start() {
     hl.selectAll("*").remove();
 
     var initFA = features[0];
-    scatterplot = new Scatterplot(main, size, radius, 750, "easeInOutCubic", colors);
+    scatterplot = new Scatterplot(main, size, radius, 750, "easeInOutCubic", colors, function(ixs, done) { // selectPoints
+      scatterplot.selectIxs(ixs, done);
+      histogram.selIxs(ixs);
+      histogram.setSelColor(!done);
+      histogram.update(false);
+      if(done) {
+        selIxs = ixs;
+      }
+    });
     scatterplot.ixs(allIxs);
     scatterplot.setFeature(targetFeature, false);
     scatterplot.setFeature(initFA, true);
@@ -178,10 +189,17 @@ function start() {
       "width": (width + 5 + pads[3] /* left padding */) + "px",
       "display": "inline-block"
     });
-    histogram = new Histogram(hl, size - pads[3] /* left padding */ - pads[1] /* right padding */, height, 750, "easeInOutCubic", colors);
+    var hw = size - pads[3] /* left padding */ - pads[1] /* right padding */;
+    histogram = new Histogram(hl, hw, height, 750, "easeInOutCubic", colors, function(ixs) { // onSelect
+      scatterplot.selectIxs(ixs, true);
+      histogram.selIxs(ixs);
+      histogram.setSelColor(false);
+      histogram.update(false);
+      selIxs = ixs;
+    });
     histogram.feature(initFA);
     histogram.ixs(allIxs);
-    histogram.update();
+    histogram.update(true);
   });
 }
 </script>

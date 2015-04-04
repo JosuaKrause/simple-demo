@@ -26,6 +26,27 @@ function removeIxs(ixs, rem) {
   return newIxs;
 }
 
+function intersectIxs(ixs, rem) {
+  // ixs.sort(d3.ascending); // we can assume that it is already sorted
+  // rem.sort(d3.ascending); // we can assume that it is already sorted
+  var newIxs = [];
+  var p = 0;
+  var q = 0;
+  while(p < ixs.length && q < rem.length) {
+    var a = ixs[p];
+    var b = rem[q];
+    if(a < b) {
+      p += 1;
+    } else if(a > b) {
+      q += 1;
+    } else { // a === b
+      newIxs.push(a);
+      p += 1;
+    }
+  }
+  return newIxs;
+}
+
 function toPoly(arr) {
   return arr.reduce(function(str, cur) {
     if(str.length) {
