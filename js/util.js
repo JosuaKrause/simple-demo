@@ -26,6 +26,48 @@ function removeIxs(ixs, rem) {
   return newIxs;
 }
 
+function unionIxs(axs, bxs) {
+  // axs.sort(d3.ascending); // we can assume that it is already sorted
+  // bxs.sort(d3.ascending); // we can assume that it is already sorted
+  var newIxs = [];
+  var lastIx = Number.NaN;
+  var p = 0;
+  var q = 0;
+  while(p < axs.length && q < bxs.length) {
+    var a = axs[p];
+    var b = bxs[q];
+    if(a > b) {
+      if(b !== lastIx) {
+        newIxs.push(b);
+        lastIx = b;
+      }
+      q += 1;
+    } else { // a <= b
+      if(a !== lastIx) {
+        newIxs.push(a);
+        lastIx = a;
+      }
+      p += 1;
+    }
+  }
+  // only one of the for loops will be executed
+  for(;p < axs.length;p += 1) {
+    var a = axs[p];
+    if(a !== lastIx) {
+      newIxs.push(a);
+      lastIx = a;
+    }
+  }
+  for(;q < bxs.length;q += 1) {
+    var b = bxs[q];
+    if(b !== lastIx) {
+      newIxs.push(b);
+      lastIx = b;
+    }
+  }
+  return newIxs;
+}
+
 function intersectIxs(ixs, rem) {
   // ixs.sort(d3.ascending); // we can assume that it is already sorted
   // rem.sort(d3.ascending); // we can assume that it is already sorted

@@ -106,8 +106,7 @@ function Scatterplot(sel, size, radius, duration, ease, initSelection, selectPoi
     dragList.push(mousePos());
     var sel = computeSelection(tmpState.featureA(), tmpState.featureB());
     if(d3.event.sourceEvent.shiftKey) {
-      sel = sel.concat(tmpState.selIxs());
-      sel.sort(d3.ascending);
+      sel = unionIxs(sel, tmpState.selIxs());
     }
     selectPoints(sel, true);
     tmpState = null;

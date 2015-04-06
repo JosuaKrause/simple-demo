@@ -159,18 +159,26 @@ function start() {
       }
       state.update(false, false, false, true);
     });
+    var lastIxs = [];
+    var lastSel = [];
+    var lastTmp = [];
     state.addListener(function(s, cA, cB, cIxs, cSel) {
       if(cA || cB || cIxs) {
         scatterplot.update(s.featureA(), s.featureB(), s.ixs());
+        var curIxs = s.ixs();
+        scatterplot.colorIxs(removeIxs(curIxs, lastIxs), s.color());
+        lastIxs = curIxs;
       }
       if(cIxs || cSel) {
         var selIxs = s.selIxs();
         var tmpIxs = s.tmpIxs();
-        var restIxs = selIxs.concat(tmpIxs);
-        restIxs.sort(d3.ascending);
-        scatterplot.colorIxs(removeIxs(s.ixs(), restIxs), s.color());
-        scatterplot.colorIxs(selIxs, s.selColor());
-        scatterplot.colorIxs(tmpIxs, s.tmpColor());
+        var restIxs = unionIxs(selIxs, tmpIxs);
+        var lastRest = unionIxs(lastSel, lastTmp);
+        scatterplot.colorIxs(removeIxs(lastRest, restIxs), s.color());
+        scatterplot.colorIxs(removeIxs(selIxs, lastSel), s.selColor());
+        scatterplot.colorIxs(removeIxs(tmpIxs, lastTmp), s.tmpColor());
+        lastSel = selIxs;
+        lastTmp = tmpIxs;
       }
     });
 

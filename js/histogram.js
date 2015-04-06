@@ -49,15 +49,13 @@ function Histogram(sel, width, height, duration, ease, onSelect) {
         }
       });
       if(d3.event.shiftKey) {
-        newSel = newSel.concat(selIxs);
-        newSel.sort(d3.ascending);
+        newSel = unionIxs(newSel, selIxs);
       }
       onSelect(newSel);
     }
 
     var binsNorm = new Uint32Array(k);
-    var restIxs = selIxs.concat(tmpIxs);
-    restIxs.sort(d3.ascending);
+    var restIxs = unionIxs(selIxs, tmpIxs);
     removeIxs(ixs, restIxs).forEach(function(ix) {
       var v = feature.getValue(ix);
       var b = binForValue(v);
