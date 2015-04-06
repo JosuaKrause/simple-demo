@@ -2,7 +2,7 @@
  * Created by krause on 2015-04-03 09:16pm.
  */
 
-function Histogram(sel, width, height, duration, ease, colors, onSelect) {
+function Histogram(sel, width, height, duration, ease, onSelect) {
   var that = this;
 
   var svg = sel.append("svg").style({
@@ -14,33 +14,14 @@ function Histogram(sel, width, height, duration, ease, colors, onSelect) {
     "height": height
   });
 
-  var feature = null;
-  this.feature = function(_) {
-    if(!arguments.length) return feature;
-    feature = _;
-  };
-  var ixs = [];
-  this.ixs = function(_) {
-    if(!arguments.length) return ixs;
-    ixs = _;
-  };
-  var selIxs = [];
-  this.selIxs = function(_) {
-    if(!arguments.length) return selIxs;
-    selIxs = _.slice();
-    selIxs.sort(d3.ascending);
-  };
-  var selColor = colors[2];
-  this.setSelColor = function(temp) {
-    selColor = colors[temp ? 1 : 2];
-  };
-
-  this.update = function(smooth) {
+  this.update = function(state, smooth) {
 
     function smoothify(sel) {
       return smooth ? sel.transition().duration(duration).ease(ease) : sel;
     }
 
+    var feature = state.featureA();
+    var ixs = state.ixs();
     if(!feature || !ixs.length) {
       smoothify(svg.selectAll("rect")).attr({
         "y": height,
@@ -48,6 +29,8 @@ function Histogram(sel, width, height, duration, ease, colors, onSelect) {
       }).remove();
       return;
     }
+    var selIxs = state.selIxs();
+    var tmpIxs = state.tmpIxs();
     var k = Math.ceil(Math.log2(ixs.length) + 1); // Sturge's rule
     var extent = feature.getExtent(ixs);
     var binW = (extent[1] - extent[0]) / k;
@@ -65,11 +48,17 @@ function Histogram(sel, width, height, duration, ease, colors, onSelect) {
           newSel.push(ix);
         }
       });
+      if(d3.event.shiftKey) {
+        newSel = newSel.concat(selIxs);
+        newSel.sort(d3.ascending);
+      }
       onSelect(newSel);
     }
 
     var binsNorm = new Uint32Array(k);
-    removeIxs(ixs, selIxs).forEach(function(ix) {
+    var restIxs = selIxs.concat(tmpIxs);
+    restIxs.sort(d3.ascending);
+    removeIxs(ixs, restIxs).forEach(function(ix) {
       var v = feature.getValue(ix);
       var b = binForValue(v);
       binsNorm[b] += 1;
@@ -80,11 +69,17 @@ function Histogram(sel, width, height, duration, ease, colors, onSelect) {
       var b = binForValue(v);
       binsSel[b] += 1;
     });
+    var binsTmp = new Uint32Array(k);
+    intersectIxs(ixs, tmpIxs).forEach(function(ix) {
+      var v = feature.getValue(ix);
+      var b = binForValue(v);
+      binsTmp[b] += 1;
+    });
 
     var maxBin = 0;
     for(var b = 0;b < binsNorm.length;b += 1) {
-      if(binsNorm[b] + binsSel[b] > maxBin) {
-        maxBin = binsNorm[b] + binsSel[b];
+      if(binsNorm[b] + binsSel[b] + binsTmp[b] > maxBin) {
+        maxBin = binsNorm[b] + binsSel[b] + binsTmp[b];
       }
     };
 
@@ -94,9 +89,12 @@ function Histogram(sel, width, height, duration, ease, colors, onSelect) {
       return ix * rectW;
     }
     function getYNorm(bin, ix) {
-      return height - (bin + binsSel[ix]) / maxBin * height;
+      return height - (bin + binsSel[ix] + binsTmp[ix]) / maxBin * height;
     }
     function getYSel(bin, ix) {
+      return height - (bin + binsTmp[ix]) / maxBin * height;
+    }
+    function getYTmp(bin, ix) {
       return height - bin / maxBin * height;
     }
     function getWidth(bin, ix) {
@@ -106,57 +104,36 @@ function Histogram(sel, width, height, duration, ease, colors, onSelect) {
       return bin / maxBin * height;
     }
 
-    var rects = svg.selectAll("rect.norm").data(binsNorm, function(bin, ix) {
-      return ix;
-    });
-    smoothify(rects.exit()).attr({
-      "x": getX,
-      "y": height,
-      "width": getWidth,
-      "height": 0
-    }).remove();
-    rects.enter().append("rect").classed("norm", true).attr({
-      "x": getX,
-      "y": height,
-      "width": getWidth,
-      "height": 0,
-      "fill": colors[0],
-      "stroke": "black",
-      "stroke-width": 0.2
-    });
-    rects.on("click", doSelect);
-    smoothify(rects).attr({
-      "x": getX,
-      "y": getYNorm,
-      "width": getWidth,
-      "height": getHeight
-    });
+    function doRects(bins, clazz, yFun, color) {
+      var rects = svg.selectAll("rect."+clazz).data(bins, function(bin, ix) {
+        return ix;
+      });
+      smoothify(rects.exit()).attr({
+        "x": getX,
+        "y": height,
+        "width": getWidth,
+        "height": 0
+      }).remove();
+      rects.enter().append("rect").classed(clazz, true).attr({
+        "x": getX,
+        "y": height,
+        "width": getWidth,
+        "height": 0,
+        "fill": color,
+        "stroke": "black",
+        "stroke-width": 0.2
+      });
+      rects.on("click", doSelect);
+      smoothify(rects).attr({
+        "x": getX,
+        "y": yFun,
+        "width": getWidth,
+        "height": getHeight
+      });
+    }
 
-    var rectsSel = svg.selectAll("rect.sel").data(binsSel, function(bin, ix) {
-      return ix;
-    });
-    smoothify(rectsSel.exit()).attr({
-      "x": getX,
-      "y": height,
-      "width": getWidth,
-      "height": 0
-    }).remove();
-    rectsSel.enter().append("rect").classed("sel", true).attr({
-      "x": getX,
-      "y": height,
-      "width": getWidth,
-      "height": 0,
-      "stroke": "black",
-      "stroke-width": 0.2
-    });
-    rectsSel.attr({
-      "fill": selColor
-    }).on("click", doSelect);
-    smoothify(rectsSel).attr({
-      "x": getX,
-      "y": getYSel,
-      "width": getWidth,
-      "height": getHeight
-    });
+    doRects(binsNorm, "norm", getYNorm, state.color());
+    doRects(binsSel, "sel", getYSel, state.selColor());
+    doRects(binsTmp, "tmp", getYTmp, state.tmpColor());
   };
 } // Histogram

@@ -11,6 +11,7 @@
   <script src="js/scatterplot.js" charset="utf-8"></script>
   <script src="js/featurelist.js" charset="utf-8"></script>
   <script src="js/histogram.js" charset="utf-8"></script>
+  <script src="js/state.js" charset="utf-8"></script>
   <script src="js/util.js" charset="utf-8"></script>
   <style>
   .featureUl {
@@ -62,31 +63,17 @@ function start() {
   var width = 200;
   var height = 100;
   var radius = 2;
-  var colors = [ "cornflowerblue", "orange", "crimson" ];
   var file = "data/usda/usda-grp-nomiss.csv";
   var columns = "Water,Energ_Kcal,Protein,Lipid_Tot,Ash,Carbohydrt,Fiber_TD,Sugar_Tot,Calcium,Iron,Magnesium,Phosphorus,Potassium,Sodium,Zinc,Copper,Manganese,Selenium,Vit_C,Thiamin,Riboflavin,Niacin,Panto_Acid,Vit_B6,Folate_Tot.,Folic_Acid,Food_Folate,Folate_DFE,Choline_Tot,Vit_B12,Vit_A_IU,Vit_A_RAE,Retinol,Alpha_Carot,Beta_Carot,Beta_Crypt,Lycopene,Lut.Zea,Vit_E,Vit_D,Vit_D.1,Vit_K,FA_Sat,FA_Mono,FA_Poly,Cholestrl".split(",");
-  var target = "Vit_D";
-
+  var fA = "Water";
+  var fB = "Vit_D";
   var allIxs = [];
-  var selIxs = [];
+
+  var state = new State();
   var scatterplot = null;
   var featurelistA = null;
   var featurelistB = null;
   var histogram = null;
-
-  function setFeatureA(f) {
-    featurelistA.update(f);
-    scatterplot.setFeature(f, true); // don't update here -- callers must update
-    histogram.feature(f);
-    histogram.update(true);
-  }
-
-  function setIxs(ixs) {
-    scatterplot.ixs(ixs);
-    scatterplot.update();
-    histogram.ixs(ixs);
-    histogram.update(true);
-  }
 
   d3.select("body").style({
     "padding": "5px"
@@ -110,27 +97,27 @@ function start() {
     "btn": true,
     "btn-default": true
   }).text("swap axes").on("click", function() {
-    var fA = scatterplot.getFeature(true);
-    var fB = scatterplot.getFeature(false);
-    setFeatureA(fB);
-    featurelistB.update(fA);
-    scatterplot.setFeature(fA, false);
-    scatterplot.update();
+    var fA = state.featureA();
+    var fB = state.featureB();
+    state.featureB(fA);
+    state.featureA(fB);
+    state.update(true, true, false, false);
   });
   buttons.append("button").classed({
     "btn": true,
     "btn-default": true
   }).text("remove selection").on("click", function() {
-    var newIxs = removeIxs(scatterplot.ixs(), selIxs);
-    histogram.selIxs([]);
-    selIxs = [];
-    setIxs(newIxs);
+    var newIxs = removeIxs(state.ixs(), state.selIxs());
+    state.ixs(newIxs);
+    state.selIxs([]);
+    state.update(false, false, true, true);
   });
   buttons.append("button").classed({
     "btn": true,
     "btn-default": true
   }).text("show all").on("click", function() {
-    setIxs(allIxs);
+    state.ixs(allIxs);
+    state.update(false, false, true, false);
   });
 
   d3.csv(file, function(error, data) {
@@ -138,9 +125,14 @@ function start() {
       console.warn(error);
       return;
     }
+
     var featureMap = {};
+    state.clearListeners();
     allIxs = Dimension.loadAll(data, columns, featureMap);
-    var targetFeature = featureMap[target];
+    state.ixs(allIxs);
+    state.selIxs([]);
+    state.featureA(featureMap[fA]);
+    state.featureB(featureMap[fB]);
     var features = Object.keys(featureMap).map(function(n) {
       return featureMap[n];
     });
@@ -154,35 +146,55 @@ function start() {
     listB.selectAll("*").remove();
     hl.selectAll("*").remove();
 
-    var initFA = features[0];
-    scatterplot = new Scatterplot(main, size, radius, 750, "easeInOutCubic", colors, function(ixs, done) { // selectPoints
-      scatterplot.selectIxs(ixs, done);
-      histogram.selIxs(ixs);
-      histogram.setSelColor(!done);
-      histogram.update(false);
+    scatterplot = new Scatterplot(main, size, radius, 750, "easeInOutCubic", function() { // initSelection
+      state.tmpIxs([]);
+      state.update(false, false, false, true);
+      return state;
+    }, function(ixs, done) { // selectPoints
       if(done) {
-        selIxs = ixs;
+        state.selIxs(ixs);
+        state.tmpIxs([]);
+      } else {
+        state.tmpIxs(ixs);
+      }
+      state.update(false, false, false, true);
+    });
+    state.addListener(function(s, cA, cB, cIxs, cSel) {
+      if(cA || cB || cIxs) {
+        scatterplot.update(s.featureA(), s.featureB(), s.ixs());
+      }
+      if(cIxs || cSel) {
+        var selIxs = s.selIxs();
+        var tmpIxs = s.tmpIxs();
+        var restIxs = selIxs.concat(tmpIxs);
+        restIxs.sort(d3.ascending);
+        scatterplot.colorIxs(removeIxs(s.ixs(), restIxs), s.color());
+        scatterplot.colorIxs(selIxs, s.selColor());
+        scatterplot.colorIxs(tmpIxs, s.tmpColor());
       }
     });
-    scatterplot.ixs(allIxs);
-    scatterplot.setFeature(targetFeature, false);
-    scatterplot.setFeature(initFA, true);
-    scatterplot.update();
 
     featurelistA = new Featurelist(listA, width, size, function(f) { // selectFeature
-      setFeatureA(f);
-      scatterplot.update();
+      state.featureA(f);
+      state.update(true, false, false, false);
     });
     featurelistA.setFeatures(features);
-    featurelistA.update(scatterplot.getFeature(true));
+    state.addListener(function(s, cA, cB, cIxs, cSel) {
+      if(cA) {
+        featurelistA.update(s.featureA());
+      }
+    });
 
     featurelistB = new Featurelist(listB, width, size, function(f) { // selectFeature
-      scatterplot.setFeature(f, false);
-      scatterplot.update();
-      featurelistB.update(f);
+      state.featureB(f);
+      state.update(false, true, false, false);
     });
     featurelistB.setFeatures(features);
-    featurelistB.update(scatterplot.getFeature(false));
+    state.addListener(function(s, cA, cB, cIxs, cSel) {
+      if(cB) {
+        featurelistB.update(s.featureB());
+      }
+    });
 
     var pads = scatterplot.padding();
     hl.append("span").style({
@@ -190,16 +202,15 @@ function start() {
       "display": "inline-block"
     });
     var hw = size - pads[3] /* left padding */ - pads[1] /* right padding */;
-    histogram = new Histogram(hl, hw, height, 750, "easeInOutCubic", colors, function(ixs) { // onSelect
-      scatterplot.selectIxs(ixs, true);
-      histogram.selIxs(ixs);
-      histogram.setSelColor(false);
-      histogram.update(false);
-      selIxs = ixs;
+    histogram = new Histogram(hl, hw, height, 750, "easeInOutCubic", function(ixs) { // onSelect
+      state.selIxs(ixs);
+      state.update(false, false, false, true);
     });
-    histogram.feature(initFA);
-    histogram.ixs(allIxs);
-    histogram.update(true);
+    state.addListener(function(s, cA, cB, cIxs, cSel) {
+      if(cA || cIxs || cSel) {
+        histogram.update(s, cA || cIxs);
+      }
+    });
   });
 }
 </script>

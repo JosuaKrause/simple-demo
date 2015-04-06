@@ -2,7 +2,7 @@
  * Created by krause on 2015-04-03 12:02am.
  */
 
-function Scatterplot(sel, size, radius, duration, ease, colors, selectPoints) {
+function Scatterplot(sel, size, radius, duration, ease, initSelection, selectPoints) {
   var that = this;
   var paddingLeft = 45;
   var paddingRight = 25;
@@ -12,10 +12,6 @@ function Scatterplot(sel, size, radius, duration, ease, colors, selectPoints) {
     return [ paddingTop, paddingRight, paddingBottom, paddingLeft ];
   };
 
-  var ixs = [];
-  var lastSelIxs = [];
-  var featureA = null;
-  var featureB = null;
   var axisX = d3.svg.axis();
   var axisY = d3.svg.axis();
 
@@ -51,7 +47,7 @@ function Scatterplot(sel, size, radius, duration, ease, colors, selectPoints) {
   }
 
   var dragList = [];
-  function computeSelection() {
+  function computeSelection(featureA, featureB) {
     var selIxs = [];
     var sx = featureA.scale();
     var sy = featureB.scale();
@@ -76,10 +72,13 @@ function Scatterplot(sel, size, radius, duration, ease, colors, selectPoints) {
     return selIxs;
   }
 
+  var tmpState = null;
   var drag = d3.behavior.drag();
   drag.on("dragstart", function() {
-    lastSelIxs = [];
-    if(!featureA || !featureB) return;
+    tmpState = initSelection();
+    if(!tmpState.featureA() || !tmpState.featureB()) {
+      return;
+    }
     dragList = [ mousePos() ];
     selPath.attr({
       "opacity": 0.5,
@@ -87,22 +86,31 @@ function Scatterplot(sel, size, radius, duration, ease, colors, selectPoints) {
     });
   });
   drag.on("drag", function() {
-    if(!featureA || !featureB) return;
+    if(!tmpState.featureA() || !tmpState.featureB()) return;
     dragList.push(mousePos());
     selPath.attr({
       "opacity": 0.5,
       "d": toPoly(dragList)
     });
-    selectPoints(computeSelection(), false);
+    selectPoints(computeSelection(tmpState.featureA(), tmpState.featureB()), false);
   });
   drag.on("dragend", function() {
-    if(!featureA || !featureB) return;
+    if(!tmpState.featureA() || !tmpState.featureB()) {
+      tmpState = null;
+      return;
+    }
     selPath.attr({
       "opacity": 0,
       "d": ""
     });
     dragList.push(mousePos());
-    selectPoints(computeSelection(), true);
+    var sel = computeSelection(tmpState.featureA(), tmpState.featureB());
+    if(d3.event.sourceEvent.shiftKey) {
+      sel = sel.concat(tmpState.selIxs());
+      sel.sort(d3.ascending);
+    }
+    selectPoints(sel, true);
+    tmpState = null;
   });
   svg.call(drag);
 
@@ -118,33 +126,16 @@ function Scatterplot(sel, size, radius, duration, ease, colors, selectPoints) {
     "text-anchor": "middle"
   });
 
-  this.ixs = function(_) {
-    if(!arguments.length) return ixs;
-    ixs = _;
-  };
-  this.selectIxs = function(selIxs, done) {
+  this.colorIxs = function(ixs, color) {
     // abuse selectAll to get selection
-    var circles = svg.selectAll("circle").data(selIxs, function(ix) {
+    var circles = svg.selectAll("circle").data(ixs, function(ix) {
       return ix;
     });
-    circles.exit().attr({
-      "fill": colors[0]
-    });
     circles.attr({
-      "fill": colors[!done ? 1 : 2]
+      "fill": color
     });
   }
-  this.setFeature = function(f, isA) {
-    if(isA) {
-      featureA = f;
-    } else {
-      featureB = f;
-    }
-  };
-  this.getFeature = function(isA) {
-    return isA ? featureA : featureB;
-  };
-  this.update = function() {
+  this.update = function(featureA, featureB, ixs) {
     if(!featureA || !featureB) {
       svg.selectAll("circle").transition().duration(duration).ease(ease).attr({
         "r": 0
@@ -194,7 +185,6 @@ function Scatterplot(sel, size, radius, duration, ease, colors, selectPoints) {
       "cy": function(ix) {
         return oldSy(featureB.getValue(ix));
       },
-      "fill": colors[0],
       "stroke": "black",
       "stroke-width": 0.2
     });
